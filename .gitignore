@@ -1,8 +1,15 @@
 # Todo file
 todo.md
 
-# Imaged
+# Local configuration and build evidence
+.env
+coverage.out
+coverage.html
+dist/
+bin/
+.cache/
+
+# Raster exports retained only where already tracked
 *.png
 *.jpeg
 *.jpg
-*.svg
