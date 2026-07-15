@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KiTicket</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">KiTicket</p>
+      <h1>رزرو و خرید بلیت</h1>
+      <p class="muted">ثبت‌نام، ورود، صف انتظار، رزرو صندلی و تایید بلیت از یک صفحه.</p>
+    </section>
+
+    <section class="card auth">
+      <div>
+        <h2>حساب کاربری</h2>
+        <p id="sessionState" class="muted">وارد نشده‌اید.</p>
+      </div>
+      <form id="registerForm" class="form-grid">
+        <input name="display_name" placeholder="نام نمایشی" required>
+        <input name="email" type="email" placeholder="ایمیل" required>
+        <input name="password" type="password" placeholder="رمز عبور" required>
+        <button type="submit">ثبت‌نام</button>
+      </form>
+      <form id="loginForm" class="form-grid">
+        <input name="email" type="email" placeholder="ایمیل" required>
+        <input name="password" type="password" placeholder="رمز عبور" required>
+        <button type="submit">ورود</button>
+      </form>
+      <button id="logoutBtn" class="ghost" type="button">خروج</button>
+    </section>
+
+    <section class="card">
+      <div class="row-between">
+        <div>
+          <h2>رویدادها</h2>
+          <p class="muted">روی یک رویداد بزن تا seat map بارگذاری شود.</p>
+        </div>
+        <form id="searchForm" class="inline-form">
+          <input name="q" placeholder="جستجو، مثلا Jazz">
+          <button type="submit">جستجو</button>
+        </form>
+      </div>
+      <div id="events" class="list"></div>
+    </section>
+
+    <section class="card">
+      <div class="row-between">
+        <div>
+          <h2>انتخاب صندلی</h2>
+          <p id="selectionMeta" class="muted">هنوز رویدادی انتخاب نشده.</p>
+        </div>
+        <div class="actions">
+          <button id="joinQueueBtn" class="ghost" type="button">ورود به صف</button>
+          <button id="reserveBtn" type="button">رزرو</button>
+        </div>
+      </div>
+      <div id="queueState" class="notice muted">توکن صف ندارید.</div>
+      <div id="seatMap" class="seat-map empty">برای شروع یک رویداد را انتخاب کن.</div>
+    </section>
+
+    <section class="card">
+      <div class="row-between">
+        <div>
+          <h2>Checkout</h2>
+          <p id="reservationState" class="muted">هنوز رزروی ثبت نشده.</p>
+        </div>
+        <button id="checkoutBtn" type="button">تکمیل خرید</button>
+      </div>
+      <pre id="ticketOutput" class="output">هنوز بلیتی صادر نشده.</pre>
+    </section>
+
+    <section class="card">
+      <h2>Verify Ticket</h2>
+      <form id="verifyForm" class="verify-form">
+        <textarea name="qr_payload" placeholder="QR payload" required></textarea>
+        <button type="submit">بررسی بلیت</button>
+      </form>
+      <div id="verifyState" class="notice muted">نتیجه هنوز ثبت نشده.</div>
+    </section>
+
+    <section class="card">
+      <h2>وضعیت</h2>
+      <pre id="statusLog" class="output"></pre>
+    </section>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>
