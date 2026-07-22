@@ -1,0 +1,266 @@
+name: kiticket
+
+x-service-environment: &service-environment
+  POSTGRES_URL: ${POSTGRES_URL}
+  REDIS_URL: ${REDIS_URL}
+  RABBITMQ_URL: ${RABBITMQ_URL}
+  JWT_SECRET: ${JWT_SECRET}
+  INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+  WAITING_ROOM_SIGNING_SECRET: ${WAITING_ROOM_SIGNING_SECRET}
+  WAITING_ROOM_PROTECTED: ${WAITING_ROOM_PROTECTED}
+  JWT_ISSUER: kiticket-identity
+  JWT_AUDIENCE: kiticket-api
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+x-service-dependencies: &service-dependencies
+  migrate:
+    condition: service_completed_successfully
+  redis:
+    condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17.6-alpine3.22
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.2.1-alpine3.22
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-56379}:6379"
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.1.3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-55672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_HOST_PORT:-55673}:15672"
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      args:
+        SERVICE: migrate
+    environment:
+      POSTGRES_URL: ${POSTGRES_URL}
+    command: ["-dir", "/migrations"]
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  identity:
+    build:
+      context: .
+      args:
+        SERVICE: identity-service
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8081
+    depends_on: *service-dependencies
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8081/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "127.0.0.1:8081:8081"
+    restart: unless-stopped
+
+  catalog:
+    build:
+      context: .
+      args:
+        SERVICE: catalog-service
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8082
+    depends_on: *service-dependencies
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8082/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "127.0.0.1:8082:8082"
+    restart: unless-stopped
+
+  reservation:
+    build:
+      context: .
+      args:
+        SERVICE: reservation-service
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8083
+      RESERVATION_IDEMPOTENCY_TTL: 24h
+    depends_on: *service-dependencies
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8083/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "127.0.0.1:8083:8083"
+    restart: unless-stopped
+
+  waiting-room:
+    build:
+      context: .
+      args:
+        SERVICE: waiting-room-service
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8085
+      WAITING_ROOM_QUEUE_TTL: 1h
+      WAITING_ROOM_ADMISSION_TTL: 5m
+      WAITING_ROOM_ADMISSION_BATCH: 5
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8085/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  checkout:
+    build:
+      context: .
+      args:
+        SERVICE: checkout-service
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8084
+      RESERVATION_SERVICE_URL: http://reservation:8083
+      TICKET_SIGNING_SECRET: ${TICKET_SIGNING_SECRET}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      reservation:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8084/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "127.0.0.1:8084:8084"
+    restart: unless-stopped
+
+  messaging-worker:
+    build:
+      context: .
+      args:
+        SERVICE: messaging-worker
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8086
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8086/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  notification:
+    build:
+      context: .
+      args:
+        SERVICE: notification-service
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8087
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      messaging-worker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8087/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      args:
+        SERVICE: api-gateway
+    environment:
+      <<: *service-environment
+      HTTP_ADDRESS: :8080
+      IDENTITY_SERVICE_URL: http://identity:8081
+      CATALOG_SERVICE_URL: http://catalog:8082
+      RESERVATION_SERVICE_URL: http://reservation:8083
+      CHECKOUT_SERVICE_URL: http://checkout:8084
+      WAITING_ROOM_SERVICE_URL: http://waiting-room:8085
+    depends_on:
+      identity:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+      reservation:
+        condition: service_healthy
+      checkout:
+        condition: service_healthy
+      waiting-room:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-18080}:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
