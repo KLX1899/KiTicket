@@ -1,45 +1,87 @@
 # KiTicket
 
-KiTicket یک نمونه microservice-based برای کشف رویداد، صف انتظار، رزرو صندلی، checkout و verify بلیت است.
-فرانت سبک پروژه هم از خود `api-gateway` سرو می‌شود و روی همان `http://127.0.0.1:18080` در دسترس است.
+End-to-end event-ticketing project demonstrating waiting-room admission, concurrency-safe
+seat reservations, idempotent payments, ticket issuance, QR check-in, and real-time updates.
+
+## Architecture
+
+KiTicket is a modular NestJS API with a React/Vite client. PostgreSQL is the system of
+record; Redis coordinates short-lived seat locks and waiting-room ordering; RabbitMQ carries
+domain events. The browser communicates with the API over REST and receives seat, payment,
+and ticket updates through Socket.IO.
 
 ## Quick start
 
-پیش‌نیازها:
-
-- `Docker` و `docker compose`
-- `Go 1.26+` برای build/test محلی
-
-راه‌اندازی:
+Requires Docker Engine and Docker Compose. From the repository root, this one command
+builds and starts the complete application. It also waits for PostgreSQL and imports the
+demo users and events automatically:
 
 ```bash
-cp .env.example .env
-make up
+docker compose up --build --wait
 ```
 
-آدرس‌ها:
-
-- Frontend + API Gateway: `http://127.0.0.1:18080`
-- PostgreSQL: `127.0.0.1:55432`
-- Redis: `127.0.0.1:56379`
-- RabbitMQ Management: `http://127.0.0.1:55673`
-
-دستورهای مهم:
+For a fresh presentation database (this removes only KiTicket's local Docker data), run:
 
 ```bash
-make up           # ساخت و بالا آوردن کل stack
-make down         # خاموش کردن سرویس‌ها
-make migrate      # اجرای migrationها
-make seed         # seed دیتای دمو
-make build        # build همه سرویس‌های Go
-make test         # اجرای تست‌های unit
-make integration  # اجرای تست‌های integration
+docker compose down -v --remove-orphans && docker compose up --build --wait
 ```
 
-سناریوی دمو:
+- UI: http://localhost:5173
+- Swagger: http://localhost:3000/api/docs
+- Health: http://localhost:3000/api/health/ready
+- Metrics: http://localhost:3000/api/metrics
+- RabbitMQ: http://localhost:15672 (`guest` / `guest`)
 
-1. به `http://127.0.0.1:18080` برو.
-2. ثبت‌نام یا login کن.
-3. رویداد `Tehran Night Jazz` را انتخاب کن.
-4. در صورت نیاز وارد صف شو، بعد صندلی رزرو و checkout را کامل کن.
-5. `QR payload` بلیت صادرشده را در بخش verify تست کن.
+Demo accounts use `Password123!`:
+
+- `customer@KiTicket.local`
+- `buyer@KiTicket.local`
+- `organizer@KiTicket.local`
+- `admin@KiTicket.local`
+
+Check service status with `docker compose ps`; all long-running services should be
+`healthy`. To stop them after the presentation, run `docker compose down`.
+
+Local verification (requires Node.js 22+):
+
+```bash
+export NODE_OPTIONS=--max-old-space-size=1024
+cd backend && npm ci && npm run lint && npm run build && npm test -- --runInBand
+cd ../frontend && npm ci && npm run lint && npm run build
+```
+
+## Booking flow
+
+Sign in, join an event's waiting room, then select available seats and create a reservation.
+Redis acquires the selected seat locks atomically with a configurable TTL, while PostgreSQL
+records the reservation in a transaction and prevents conflicting bookings. An admitted
+waiting-room token is required when waiting-room protection is enabled.
+
+Payment creation accepts an idempotency key. A successful payment confirms the reservation,
+books its seats, generates random ticket tokens, and notifies the user in real time. A failed,
+timed-out, cancelled, or expired reservation releases the seats for another customer. Issued
+tickets can be retrieved as QR data and checked in through the ticket API.
+
+## Project layout
+
+```text
+backend/         NestJS API, seed script, and Jest tests
+frontend/        React/Vite user interface
+infra/k8s/       Kubernetes manifests
+infra/terraform/ AWS infrastructure configuration
+docs/            Requirements, ADRs, diagrams, and project evidence
+```
+
+## Documentation
+
+See the [presentation guide](PresentationGuide.md),
+[requirements traceability](docs/requirements-traceability.md),
+[implementation plan](docs/implementation-plan.md),
+[test evidence](docs/test-evidence.md),
+[architecture decisions](docs/adr/),
+[UML architecture models](docs/UML%20Architecture%20Models%20-%20KiTicket.pdf), and
+[Terraform deployment guide](infra/terraform/README.md).
+
+For production, disable `DB_SYNCHRONIZE`, provide a unique `JWT_SECRET` of at least 32
+characters, and manage every service secret outside source control. The checked-in
+`.env.example` contains development-only placeholder values.
