@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: backend}
+spec:
+  minAvailable: 2
+  selector: {matchLabels: {app: backend}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: frontend}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app: frontend}}

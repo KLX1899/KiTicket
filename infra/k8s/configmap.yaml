@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ticketing-config
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  REDIS_URL: "redis://redis:6379"
+  DB_SYNCHRONIZE: "false"
+  DB_SSL: "false"
+  WAITING_ROOM_REQUIRED: "true"
+  WAITING_ROOM_INITIAL_ADMISSIONS: "100"
+  ADMISSION_TTL_SECONDS: "900"
+  LOCK_TTL_SECONDS: "600"
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_REQUESTS: "120"
+  CORS_ORIGIN: "https://ticketing.example.com"
