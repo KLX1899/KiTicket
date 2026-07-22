@@ -1,16 +1,18 @@
-# syntax=docker/dockerfile:1.7
-FROM golang:1.26.0-alpine3.23 AS build
-ARG SERVICE
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY cmd ./cmd
-COPY internal ./internal
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service ./cmd/${SERVICE}
+FROM node:22-alpine AS dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --no-audit
 
-FROM alpine:3.23
-RUN apk add --no-cache ca-certificates tzdata && addgroup -S kiticket && adduser -S -G kiticket kiticket
-COPY --from=build /out/service /service
-USER kiticket
-ENTRYPOINT ["/service"]
+FROM dependencies AS build
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS production
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev --no-audit && npm cache clean --force
+COPY --from=build --chown=node:node /app/dist ./dist
+USER node
+EXPOSE 3000
+CMD ["node", "dist/main.js"]
