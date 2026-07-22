@@ -35,7 +35,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       <header>
         <Link className="brand" to="/">
           <span>Ki</span>
-          <strong>Kipotify</strong>
+          <strong>KiTicket</strong>
         </Link>
         <nav>
           <NavLink to="/" end>رویدادها</NavLink>
@@ -70,7 +70,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       )}
       <main>{children}</main>
       <footer>
-        <strong>Kipotify</strong>
+        <strong>KiTicket</strong>
         <span>بهترین ایونت، ایونتای بهراده که حضوریه 💞</span>
       </footer>
     </div>
