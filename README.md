@@ -74,12 +74,12 @@ docs/            Requirements, ADRs, diagrams, and project evidence
 
 ## Documentation
 
-See the [presentation guide](PresentationGuide.md),
-[requirements traceability](docs/requirements-traceability.md),
-[implementation plan](docs/implementation-plan.md),
-[test evidence](docs/test-evidence.md),
-[architecture decisions](docs/adr/),
-[UML architecture models](docs/UML%20Architecture%20Models%20-%20KiTicket.pdf), and
+See the [documentation index](docs/README.md),
+[architecture overview](docs/architecture/overview.md),
+[requirements traceability](docs/quality/requirements-traceability.md),
+[verification guide](docs/quality/verification.md),
+[editable diagrams](docs/diagrams/),
+[local operations guide](docs/operations/local-operations.md), and
 [Terraform deployment guide](infra/terraform/README.md).
 
 For production, disable `DB_SYNCHRONIZE`, provide a unique `JWT_SECRET` of at least 32
