@@ -1,8 +1,10 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # A version-scoped volume prevents PostgreSQL major-version data-directory
+    # incompatibilities when an older local volume is present.
+    image: postgres:17-alpine
     environment: {POSTGRES_USER: ticketing, POSTGRES_PASSWORD: ticketing, POSTGRES_DB: ticketing}
-    volumes: [postgres-data:/var/lib/postgresql/data]
+    volumes: [postgres-data-v17:/var/lib/postgresql/data]
     ports: ["${POSTGRES_HOST_PORT:-55432}:5432"]
     healthcheck: {test: ["CMD-SHELL","pg_isready -U ticketing"], interval: 5s, timeout: 3s, retries: 20}
   redis:
@@ -24,11 +26,20 @@ services:
       DB_SYNCHRONIZE: "true"
       WAITING_ROOM_REQUIRED: "true"
     ports: ["3000:3000"]
-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, rabbitmq: {condition: service_healthy}, seed: {condition: service_completed_successfully}}
     healthcheck: {test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health/ready"], interval: 10s, timeout: 5s, retries: 20}
+  seed:
+    build:
+      context: ./backend
+      target: build
+    command: ["npm", "run", "seed"]
+    environment:
+      DATABASE_URL: postgres://ticketing:ticketing@postgres:5432/ticketing
+    depends_on: {postgres: {condition: service_healthy}}
+    restart: "no"
   frontend:
     build: ./frontend
     ports: ["5173:8080"]
     depends_on: [backend]
     healthcheck: {test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"], interval: 10s, timeout: 5s, retries: 10}
-volumes: {postgres-data: {}}
+volumes: {postgres-data-v17: {}}
