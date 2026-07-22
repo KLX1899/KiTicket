@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+dnf install -y docker
+systemctl enable --now docker
+docker pull '${container_image}'
+docker run --detach --restart unless-stopped --name ticketing-backend --publish 3000:3000 \
+  --env NODE_ENV=production \
+  --env DB_SYNCHRONIZE=false \
+  --env DATABASE_URL='${database_url}' \
+  --env REDIS_URL='${redis_url}' \
+  --env JWT_SECRET='${jwt_secret}' \
+  --env WAITING_ROOM_REQUIRED=true \
+  '${container_image}'
+
