@@ -1,0 +1,24 @@
+@startuml
+title KiTicket — local Docker Compose deployment
+node "Browser\nhttp://localhost:5173" as Browser
+node "frontend\nNginx :8080" as Frontend
+node "backend\nNestJS :3000" as Backend
+database "postgres:17\ncontainer :5432" as Postgres
+collections "redis:7\ncontainer :6379" as Redis
+queue "rabbitmq:3\ncontainer :5672\nmanagement :15672" as Rabbit
+component "seed\none-shot backend image" as Seed
+
+Browser --> Frontend
+Browser --> Backend : /api via frontend proxy\nor direct local API use
+Frontend ..> Backend : API proxy
+Backend --> Postgres
+Backend --> Redis
+Backend --> Rabbit
+Seed --> Postgres
+
+note bottom
+Compose exposes host ports 3000, 5173, 55432, 56379,
+55672 and 15672 by default (some are configurable).
+end note
+@enduml
+

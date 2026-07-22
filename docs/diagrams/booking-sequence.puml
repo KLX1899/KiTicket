@@ -1,0 +1,32 @@
+@startuml
+title KiTicket — reservation and sandbox-payment flow
+actor Customer
+participant "React client" as Web
+participant "NestJS API" as API
+database PostgreSQL as DB
+collections Redis
+queue RabbitMQ as MQ
+
+Customer -> Web : select event and seats
+Web -> API : POST /waiting-room/{eventId}/join
+API -> Redis : INCR waiting:event:{eventId}:sequence
+API -> DB : save waiting-room entry
+API --> Web : entry / admission token
+
+Web -> API : POST /reservations\n(admission token, seat IDs)
+API -> DB : validate event, venue seats and pricing
+API -> Redis : atomically acquire all seat locks
+API -> DB : transaction: save pending reservation\nand locked ReservationSeat rows
+API -> MQ : publish reservation.created
+API --> Web : pending reservation and expiry
+
+Web -> API : POST /payments\n(idempotency key)
+API -> DB : save or return pending payment
+API --> Web : payment
+Web -> API : POST /payments/{id}/complete\n(sandbox outcome)
+API -> DB : transaction: confirm/book/create tickets\nor cancel/expire/remove locked seats
+API -> Redis : release owner-held locks
+API -> MQ : publish payment/ticket event
+API --> Web : payment, reservation and tickets
+@enduml
+

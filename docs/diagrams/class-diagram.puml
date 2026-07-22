@@ -1,0 +1,116 @@
+@startuml
+title KiTicket — persisted domain model
+hide methods
+
+class User {
+  id: UUID
+  email
+  name
+  role
+}
+class Venue {
+  id: UUID
+  name
+  city
+  address
+}
+class Sector {
+  id: UUID
+  venueId
+  name
+}
+class Seat {
+  id: UUID
+  sectorId
+  row
+  number
+  accessible
+}
+class Event {
+  id: UUID
+  organizerId
+  venueId
+  title
+  startsAt
+  published
+}
+class PricingCategory {
+  id: UUID
+  eventId
+  sectorId
+  price
+  currency
+}
+class Reservation {
+  id: UUID
+  userId
+  eventId
+  state
+  expiresAt
+  totalAmount
+}
+class ReservationSeat {
+  id: UUID
+  reservationId
+  eventId
+  seatId
+  state
+  price
+}
+class Payment {
+  id: UUID
+  reservationId
+  idempotencyKey
+  state
+  amount
+}
+class Ticket {
+  id: UUID
+  reservationId
+  seatId
+  token
+  qrHash
+  checkedInAt
+}
+class Notification {
+  id: UUID
+  userId
+  channel
+  message
+  sent
+}
+class WaitingRoomEntry {
+  id: UUID
+  eventId
+  userId
+  position
+  state
+  admissionToken
+}
+
+Venue "1" -- "*" Sector
+Sector "1" -- "*" Seat
+User "1" -- "*" Event : organizes
+Venue "1" -- "*" Event
+Event "1" -- "*" PricingCategory
+User "1" -- "*" Reservation
+Event "1" -- "*" Reservation
+Reservation "1" -- "*" ReservationSeat
+Reservation "1" -- "0..1" Payment
+Reservation "1" -- "*" Ticket
+User "1" -- "*" Notification
+User "1" -- "*" WaitingRoomEntry
+Event "1" -- "*" WaitingRoomEntry
+
+note right of ReservationSeat
+UNIQUE(eventId, seatId)
+end note
+note right of Payment
+UNIQUE(reservationId)
+UNIQUE(idempotencyKey)
+end note
+note right of Ticket
+UNIQUE(token)
+UNIQUE(reservationId, seatId)
+end note
+@enduml

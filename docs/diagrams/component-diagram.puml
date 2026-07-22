@@ -1,0 +1,30 @@
+@startuml
+title KiTicket — implemented component view
+left to right direction
+
+actor Customer
+actor Organizer
+actor Administrator
+component "React / Vite client" as Web
+component "NestJS API\ncontrollers, guards and services" as API
+database "PostgreSQL\ndurable application state" as DB
+collections "Redis\nseat locks and queue sequence" as Redis
+queue "RabbitMQ\ndomain-event queue" as MQ
+component "Socket.IO gateway" as WS
+
+Customer --> Web
+Organizer --> Web
+Administrator --> Web
+Web --> API : REST /api
+Web --> WS : authenticated Socket.IO
+API --> DB : TypeORM
+API --> Redis : Lua lock scripts, INCR
+API --> MQ : publish and consume\nnotification events
+API --> WS : user/event updates
+
+note bottom of API
+One deployable modular monolith.
+RabbitMQ delivery is not backed by an outbox/inbox.
+end note
+@enduml
+
